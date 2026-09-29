@@ -73,7 +73,7 @@ dsh plugin --profile web add <解压路径>\dsh-model-request-counter
 - **自动扫描**：直接读取 `$DSH_HOME/sessions/` 下全部会话记录（zstd JSONL，逐帧解码），覆盖所有历史会话；按文件 mtime 缓存，「重新扫描」丢弃缓存重读。
 - **一次请求 = 一条记录**：`assistant/message`（成功/中断/max-tokens）和 `assistant/attempt`（失败重试）各计一条。
 - **去重**：fork 出的子会话跳过继承自父会话的前缀，避免重复计数。
-- **成本**：默认只内置 DeepSeek 官方模型价格，第三方供应商（如 tyy/zs）需在设置页配置。
+- **成本**：默认只内置 DeepSeek 官方模型价格，其他第三方供应商需在设置页配置。
 
 ## HTTP 接口（宿主半体提供）
 
