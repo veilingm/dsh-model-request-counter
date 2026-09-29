@@ -1,0 +1,18 @@
+# Dependencies (pnpm installs these when adding from git/tarball/registry;
+# only zip-folder distribution needs to carry node_modules — see README)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor artifacts
+.idea/
+.vscode/
+*.swp

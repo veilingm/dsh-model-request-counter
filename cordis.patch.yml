@@ -1,0 +1,8 @@
+# dsh-model-request-counter bundle patch: registers the `modelRequestCounts`
+# session projection. Each session listing (and every consumer of the
+# session-projection seam) can then read per-provider/model request totals.
+# Applied as one insert over the current profile root; rows here are addressed
+# by id, with later layers and the user's profile cordis.patch.yml still to come.
+- insert:
+    - id: model-request-counter
+      name: 'dsh-model-request-counter'

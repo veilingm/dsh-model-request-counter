@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>模型使用统计</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #151a23; --panel2: #1a2130; --border: #262d3a;
+    --text: #e6edf3; --muted: #9aa4b2; --accent: #4f8ff7;
+    --input: #3b82f6; --output: #22c55e; --cachew: #f59e0b; --cacher: #a855f7; --cost: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  header h1 { font-size: 20px; margin: 0; }
+  .back-link { color: var(--muted); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 3px; }
+  .back-link:hover { color: var(--accent); }
+  header .tools { display: flex; align-items: center; gap: 8px; }
+  input[type=date], button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card .label { color: var(--muted); font-size: 12px; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .card .value small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .approx-inline { color: var(--muted); font-size: 11px; }
+  .chartwrap { position: relative; width: 100%; }
+  .chartwrap svg { display: block; width: 100%; height: auto; }
+  .charttip { position: absolute; pointer-events: none; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 12px; line-height: 1.7; color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 5; white-space: nowrap; display: none; }
+  .charttip .ttTitle { font-weight: 600; margin-bottom: 2px; }
+  .charttip .ttRow { display: flex; align-items: center; gap: 6px; }
+  .charttip .ttDot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  svg { display: block; width: 100%; height: auto; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 0; }
+  .tabs button { border-radius: 8px 8px 0 0; border-bottom: none; background: transparent; color: var(--muted); padding: 8px 16px; }
+  .tabs button.active { background: var(--panel); color: var(--text); border-color: var(--border); }
+  .tabbody { border-top: none; border-radius: 0 0 12px 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); }
+  th:first-child, td:first-child, th.left, td.left { text-align: left; }
+  tbody tr:hover { background: rgba(79, 143, 247, 0.06); }
+  td.num { font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; }
+  .badge.ok { background: rgba(34, 197, 94, 0.15); color: var(--output); }
+  .badge.err { background: rgba(239, 68, 68, 0.15); color: var(--cost); }
+  .empty { color: var(--muted); text-align: center; padding: 30px 0; }
+  .tablewrap { max-height: 480px; overflow: auto; border-radius: 8px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+  .pricing-row input { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; width: 90px; font-size: 13px; }
+  .pricing-row input.pattern { width: 220px; }
+  .pricing-row button { padding: 4px 10px; }
+  .settings-actions { display: flex; gap: 8px; margin-top: 12px; }
+  code { background: var(--panel2); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+  .err-banner { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--cost); border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; display: none; }
+  .providers { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .chip { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 14px; font-size: 12px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); color: #fff; border-color: transparent; }
+  .chip .chipStats { opacity: .75; margin-left: 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back-link" href="/" title="回到主界面">← 返回</a>
+    <h1>模型使用统计</h1>
+    <div class="tools">
+      <button id="prevDay" title="前一天">←</button>
+      <input type="date" id="dateInput">
+      <button id="nextDay" title="后一天">→</button>
+      <button id="refresh">刷新</button>
+      <button id="rescan">重新扫描</button>
+    </div>
+  </header>
+
+  <div class="err-banner" id="errBanner"></div>
+
+  <div class="providers" id="providers"></div>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="panel">
+    <h2>使用趋势（按小时）</h2>
+    <div id="chart"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--cost)"></i>成本</span>
+      <span><i class="dot" style="background:var(--cachew)"></i>缓存创建</span>
+      <span><i class="dot" style="background:var(--cacher)"></i>缓存命中</span>
+      <span><i class="dot" style="background:var(--input)"></i>输入 Token</span>
+      <span><i class="dot" style="background:var(--output)"></i>输出 Token</span>
+    </div>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="log" class="active">请求日志</button>
+    <button data-tab="models">按模型汇总</button>
+    <button data-tab="settings">设置</button>
+  </nav>
+  <section class="panel tabbody" id="tabbody"></section>
+</div>
+
+<script src="/static/model-usage-shared.js"></script>
+<script>
+"use strict";
+// Aliases to the shared formatting library (lib/static/shared.js).
+var fmtInt = __MRC__.fmtInt;
+var fmtCost = __MRC__.fmtCost;
+var fmtMs = __MRC__.fmtMs;
+var fmtTime = __MRC__.fmtTime;
+var fmtCompact = __MRC__.fmtCompact;
+var fmtApprox = __MRC__.fmtApprox;
+var approxOf = __MRC__.approxOf;
+var fmtAxisTokens = __MRC__.fmtAxisTokens;
+var tok = __MRC__.tok;
+
+const state = { data: null, tab: "log", pricingRows: null, provider: "" };
+
+const $ = (id) => document.getElementById(id);
+
+function showError(message) {
+  const banner = $("errBanner");
+  if (!message) { banner.style.display = "none"; return; }
+  banner.textContent = message;
+  banner.style.display = "block";
+}
+
+async function fetchUsage(opts) {
+  opts = opts || {};
+  const params = new URLSearchParams();
+  if (opts.date) params.set("date", opts.date);
+  if (opts.rescan) params.set("rescan", "1");
+  const qs = params.toString();
+  try {
+    const resp = await fetch("/api/model-usage" + (qs ? "?" + qs : ""));
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    state.data = await resp.json();
+    state.pricingRows = null;
+    showError("");
+    render();
+  } catch (error) {
+    showError("加载失败：" + error.message);
+  }
+}
+
+// ── rendering ───────────────────────────────────────────────────────────────
+function visibleEntries() {
+  const all = state.data ? state.data.entries : [];
+  return state.provider === "" ? all : all.filter((e) => e.provider === state.provider);
+}
+
+function render() {
+  if (!state.data) return;
+  $("dateInput").value = state.data.date;
+  renderProviders();
+  renderCards();
+  renderChart();
+  renderTab();
+}
+
+function renderProviders() {
+  const groups = new Map();
+  for (const e of state.data.entries) {
+    const g = groups.get(e.provider) ?? { provider: e.provider, requests: 0, tokens: 0, cost: 0 };
+    g.requests++;
+    g.tokens += e.inputTokens + e.outputTokens + e.cacheReadTokens + e.cacheWriteTokens;
+    g.cost += e.cost;
+    groups.set(e.provider, g);
+  }
+  const providers = [...groups.values()].sort((a, b) => b.tokens - a.tokens);
+  const chips = ['<button class="chip' + (state.provider === "" ? " active" : "") + '" data-p="">全部供应商</button>'];
+  for (const p of providers) {
+    chips.push('<button class="chip' + (state.provider === p.provider ? " active" : "") + '" data-p="' + esc(p.provider)
+      + '" title="' + esc(p.provider) + "：" + fmtInt(p.requests) + " 次请求 · " + fmtInt(p.tokens) + " tokens · " + fmtCost(p.cost) + '">'
+      + esc(p.provider) + '<span class="chipStats">' + fmtInt(p.requests) + " 次 · " + fmtCompact(p.tokens)
+      + (p.cost > 0 ? " · " + fmtCost(p.cost) : "") + "</span></button>");
+  }
+  $("providers").innerHTML = chips.join("");
+}
+
+function dayTotals(entries) {
+  const t = { requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, cost: 0 };
+  for (const e of entries) {
+    t.requests++;
+    t.inputTokens += e.inputTokens;
+    t.outputTokens += e.outputTokens;
+    t.cacheReadTokens += e.cacheReadTokens;
+    t.cacheWriteTokens += e.cacheWriteTokens;
+    t.cost += e.cost;
+  }
+  return t;
+}
+
+function renderCards() {
+  const entries = visibleEntries();
+  const t = dayTotals(entries);
+  const totalTokens = t.inputTokens + t.outputTokens + t.cacheReadTokens + t.cacheWriteTokens;
+  const hitRate = (t.inputTokens + t.cacheReadTokens) > 0
+    ? (t.cacheReadTokens / (t.inputTokens + t.cacheReadTokens) * 100).toFixed(1) + "%"
+    : "—";
+  const card = (label, value, extra) =>
+    '<div class="card"><div class="label">' + label + '</div><div class="value">' + value +
+    (extra ? " <small>" + extra + "</small>" : "") + "</div></div>";
+  $("cards").innerHTML =
+    card("真实消耗 Tokens", fmtInt(totalTokens), fmtApprox(totalTokens)) +
+    card("总请求数", fmtInt(t.requests)) +
+    card("总成本", fmtCost(t.cost)) +
+    card("输入 Tokens", fmtInt(t.inputTokens), fmtApprox(t.inputTokens)) +
+    card("输出 Tokens", fmtInt(t.outputTokens), fmtApprox(t.outputTokens)) +
+    card("缓存创建", fmtInt(t.cacheWriteTokens), fmtApprox(t.cacheWriteTokens)) +
+    card("缓存命中", fmtInt(t.cacheReadTokens), fmtApprox(t.cacheReadTokens)) +
+    card("缓存命中率", hitRate);
+}
+
+function renderChart() {
+  const entries = visibleEntries();
+  const W = 1120, H = 260, ML = 64, MR = 64, MT = 16, MB = 30;
+  const IW = W - ML - MR, IH = H - MT - MB;
+  const buckets = Array.from({ length: 24 }, () => ({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0, cost: 0, requests: 0 }));
+  for (const e of entries) {
+    const hour = new Date(e.time).getHours();
+    const b = buckets[hour];
+    b.input += e.inputTokens; b.output += e.outputTokens;
+    b.cacheWrite += e.cacheWriteTokens; b.cacheRead += e.cacheReadTokens;
+    b.cost += e.cost; b.requests++;
+  }
+  const maxTokens = Math.max(1, ...buckets.map((b) => b.input + b.output + b.cacheWrite + b.cacheRead));
+  const maxCost = Math.max(...buckets.map((b) => b.cost));
+  const x = (h) => ML + (IW / 24) * h;
+  const bw = IW / 24 - 6;
+  const yT = (v) => MT + IH - (v / maxTokens) * IH;
+  const yC = (v) => MT + IH - (maxCost > 0 ? (v / maxCost) * IH : 0);
+
+  let svg = '<svg viewBox="0 0 ' + W + " " + H + '" xmlns="http://www.w3.org/2000/svg">';
+  // gridlines + left axis (tokens)
+  for (let i = 0; i <= 4; i++) {
+    const v = (maxTokens / 4) * i;
+    const y = yT(v);
+    svg += '<line x1="' + ML + '" y1="' + y + '" x2="' + (W - MR) + '" y2="' + y + '" stroke="#262d3a" stroke-width="1"/>';
+    svg += '<text x="' + (ML - 8) + '" y="' + (y + 4) + '" fill="#9aa4b2" font-size="11" text-anchor="end">' + fmtAxisTokens(v) + "</text>";
+  }
+  // right axis (cost)
+  if (maxCost > 0) {
+    for (let i = 0; i <= 4; i++) {
+      const v = (maxCost / 4) * i;
+      svg += '<text x="' + (W - MR + 8) + '" y="' + (yC(v) + 4) + '" fill="#ef4444" font-size="11">' + fmtCost(v) + "</text>";
+    }
+  }
+  // x labels
+  for (let h = 0; h <= 24; h += 3) {
+    const px = h === 24 ? W - MR : x(h);
+    svg += '<text x="' + px + '" y="' + (H - 8) + '" fill="#9aa4b2" font-size="11" text-anchor="middle">' + h + "时</text>";
+  }
+  // stacked bars + cost line points
+  const fills = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7"];
+  const costPts = [];
+  for (let h = 0; h < 24; h++) {
+    const b = buckets[h];
+    const bx = x(h) + 3;
+    const parts = [
+      b.input, b.output, b.cacheWrite, b.cacheRead,
+    ];
+    let colored = '<g data-hour="' + h + '">';
+    let base = 0;
+    parts.forEach((value, idx) => {
+      if (value <= 0) return;
+      const y = yT(base + value);
+      const height = yT(base) - y;
+      colored += '<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="' + Math.max(height, 1) + '" fill="' + fills[idx] + '" rx="1"/>';
+      base += value;
+    });
+    colored += "</g>";
+    svg += colored;
+    costPts.push([x(h) + 3 + bw / 2, yC(b.cost)]);
+  }
+  // cost line
+  if (maxCost > 0) {
+    svg += '<polyline points="' + costPts.map((p) => p[0] + "," + p[1]).join(" ") +
+      '" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linejoin="round"/>';
+    for (const [px, py] of costPts) {
+      svg += '<circle cx="' + px + '" cy="' + py + '" r="2.4" fill="#ef4444"/>';
+    }
+  }
+  // hover overlay elements (on top): column highlight + crosshair
+  svg += '<rect id="hoverCol" x="0" y="' + MT + '" width="' + (IW / 24) + '" height="' + IH + '" fill="#e6edf3" opacity="0.06" style="display:none"/>';
+  svg += '<line id="crosshair" x1="0" y1="' + MT + '" x2="0" y2="' + (MT + IH) + '" stroke="#9aa4b2" stroke-width="1" stroke-dasharray="3 3" style="display:none"/>';
+  svg += "</svg>";
+  if (entries.length === 0) {
+    $("chart").innerHTML = '<div class="empty">' + (state.provider === "" ? "当日无请求数据" : "该供应商当日无请求") + "</div>";
+    return;
+  }
+  $("chart").innerHTML = '<div class="chartwrap">' + svg + '<div class="charttip" id="chartTip"></div></div>';
+  attachChartHover(buckets, { W, ML, MR, IW });
+}
+
+/** Wire the trend chart's hover interaction: crosshair, column highlight, tooltip. */
+function attachChartHover(buckets, geo) {
+  const wrap = document.querySelector("#chart .chartwrap");
+  const svg = wrap ? wrap.querySelector("svg") : null;
+  const tip = document.getElementById("chartTip");
+  const col = document.getElementById("hoverCol");
+  const cross = document.getElementById("crosshair");
+  if (!svg || !tip || !col || !cross) return;
+  const fills = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7"];
+  const hide = () => {
+    tip.style.display = "none";
+    col.style.display = "none";
+    cross.style.display = "none";
+    svg.querySelectorAll("g[data-hour]").forEach((g) => { g.style.opacity = ""; });
+  };
+  svg.addEventListener("mousemove", (e) => {
+    const rect = svg.getBoundingClientRect();
+    const vx = ((e.clientX - rect.left) / rect.width) * geo.W;
+    const hour = Math.floor((vx - geo.ML) / (geo.IW / 24));
+    if (hour < 0 || hour > 23 || vx < geo.ML || vx > geo.W - geo.MR) { hide(); return; }
+    const b = buckets[hour];
+    const colX = geo.ML + (geo.IW / 24) * hour;
+    col.setAttribute("x", colX);
+    col.style.display = "";
+    const cx = colX + (geo.IW / 24) / 2;
+    cross.setAttribute("x1", cx);
+    cross.setAttribute("x2", cx);
+    cross.style.display = "";
+    svg.querySelectorAll("g[data-hour]").forEach((g) => {
+      g.style.opacity = Number(g.dataset.hour) === hour ? "1" : "0.45";
+    });
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const flip = px > rect.width - 210;
+    const row = (color, label, value) =>
+      '<div class="ttRow"><i class="ttDot" style="background:' + color + '"></i><span>' + label + " " + fmtInt(value) + approxOf(value) + "</span></div>";
+    tip.innerHTML = '<div class="ttTitle">' + hour + "时 · " + b.requests + " 次请求</div>"
+      + row(fills[0], "输入", b.input)
+      + row(fills[1], "输出", b.output)
+      + row(fills[2], "缓存创建", b.cacheWrite)
+      + row(fills[3], "缓存命中", b.cacheRead)
+      + '<div class="ttRow"><i class="ttDot" style="background:#ef4444"></i><span>成本 ' + fmtCost(b.cost) + "</span></div>";
+    tip.style.display = "block";
+    tip.style.left = flip ? "" : (px + 14) + "px";
+    tip.style.right = flip ? (rect.width - px + 14) + "px" : "";
+    tip.style.top = Math.max(4, Math.min(py - 30, rect.height - 130)) + "px";
+  });
+  svg.addEventListener("mouseleave", hide);
+}
+
+function renderTab() {
+  const body = $("tabbody");
+  if (state.tab === "log") body.innerHTML = renderLog();
+  else if (state.tab === "models") body.innerHTML = renderModels();
+  else body.innerHTML = renderSettings();
+  bindTabEvents();
+}
+
+function renderLog() {
+  const entries = visibleEntries();
+  if (entries.length === 0) return '<div class="empty">' + (state.provider === "" ? "当日无请求数据" : "该供应商当日无请求") + "</div>";
+  let rows = "";
+  for (const e of entries) {
+    const status = e.ok
+      ? '<span class="badge ok">200</span>'
+      : '<span class="badge err">' + (e.status ?? e.code ?? "ERR") + "</span>";
+    rows += "<tr><td>" + fmtTime(e.time) + "</td><td class='left'>" + esc(e.provider) +
+      "</td><td class='left'>" + esc(e.model) +
+      '</td><td class="num">' + tok(e.inputTokens) + '</td><td class="num">' + tok(e.outputTokens) +
+      '</td><td class="num">' + tok(e.cacheReadTokens) + '</td><td class="num">' + tok(e.cacheWriteTokens) +
+      '</td><td class="num">' + fmtCost(e.cost) + '</td><td class="num">' + fmtMs(e.durationMs) +
+      '</td><td class="num">' + fmtMs(e.firstTokenMs) + "</td><td>" + status + "</tr>";
+  }
+  return '<div class="tablewrap"><table><thead><tr><th>时间</th><th class="left">供应商</th><th class="left">模型</th>' +
+    "<th>输入</th><th>输出</th><th>缓存读</th><th>缓存写</th><th>成本</th><th>耗时</th><th>首字</th><th>状态</th>" +
+    "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+}
+
+function renderModels() {
+  const entries = visibleEntries();
+  if (entries.length === 0) return '<div class="empty">' + (state.provider === "" ? "当日无请求数据" : "该供应商当日无请求") + "</div>";
+  const groups = new Map();
+  for (const e of entries) {
+    const key = e.provider + " / " + e.model;
+    const g = groups.get(key) ?? { provider: e.provider, model: e.model, requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, cost: 0, durationMs: 0, firstTokenMs: 0, timed: 0, ok: 0 };
+    g.requests++; g.inputTokens += e.inputTokens; g.outputTokens += e.outputTokens;
+    g.cacheReadTokens += e.cacheReadTokens; g.cacheWriteTokens += e.cacheWriteTokens;
+    g.cost += e.cost; g.durationMs += e.durationMs; g.firstTokenMs += e.firstTokenMs;
+    if (e.durationMs > 0) g.timed++;
+    if (e.ok) g.ok++;
+    groups.set(key, g);
+  }
+  let rows = "";
+  for (const g of [...groups.values()].sort((a, b) => b.cost - a.cost || b.requests - a.requests)) {
+    rows += "<tr><td class='left'>" + esc(g.provider) + "</td><td class='left'>" + esc(g.model) +
+      '</td><td class="num">' + fmtInt(g.requests) + '</td><td class="num">' + tok(g.inputTokens) +
+      '</td><td class="num">' + tok(g.outputTokens) + '</td><td class="num">' + tok(g.cacheReadTokens) +
+      '</td><td class="num">' + tok(g.cacheWriteTokens) + '</td><td class="num">' + fmtCost(g.cost) +
+      '</td><td class="num">' + (g.timed ? fmtMs(g.durationMs / g.timed) : "—") +
+      '</td><td class="num">' + (g.timed ? fmtMs(g.firstTokenMs / g.timed) : "—") +
+      '</td><td class="num">' + ((g.ok / g.requests) * 100).toFixed(0) + "%</td></tr>";
+  }
+  return '<div class="tablewrap"><table><thead><tr><th class="left">供应商</th><th class="left">模型</th>' +
+    "<th>请求数</th><th>输入</th><th>输出</th><th>缓存读</th><th>缓存写</th><th>成本</th><th>平均耗时</th><th>平均首字</th><th>成功率</th>" +
+    "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+}
+
+function renderSettings() {
+  if (!state.pricingRows) {
+    state.pricingRows = {
+      patterns: Object.keys(state.data.pricing),
+      prices: Object.entries(state.data.pricing).map(([, prices]) => ({ ...prices })),
+    };
+  }
+  const rows = state.pricingRows.patterns.map((pattern, i) => {
+    const p = state.pricingRows.prices[i];
+    return '<tr class="pricing-row" data-i="' + i + '"><td><input class="pattern" value="' + esc(pattern) + '"></td>' +
+      '<td><input data-field="input" type="number" step="any" min="0" value="' + p.input + '"></td>' +
+      '<td><input data-field="output" type="number" step="any" min="0" value="' + p.output + '"></td>' +
+      '<td><input data-field="cacheRead" type="number" step="any" min="0" value="' + p.cacheRead + '"></td>' +
+      '<td><input data-field="cacheWrite" type="number" step="any" min="0" value="' + p.cacheWrite + '"></td>' +
+      '<td><button class="del" data-i="' + i + '">删除</button></td></tr>';
+  }).join("");
+  const scan = state.data.scan;
+  return "<h2>成本定价</h2>" +
+    '<div class="tablewrap"><table><thead><tr><th class="left">匹配规则</th><th>输入 $/M</th><th>输出 $/M</th><th>缓存读 $/M</th><th>缓存写 $/M</th><th></th></tr></thead><tbody id="pricingRows">' +
+    rows + "</tbody></table></div>" +
+    '<div class="settings-actions"><button id="addRule">＋ 添加规则</button><button id="savePricing" class="primary">保存定价</button></div>' +
+    '<p class="hint">规则格式：<code>provider/model</code> 精确匹配、<code>provider/*</code> 供应商通配、<code>*</code> 兜底；价格为每百万 tokens 的美元数。保存后立即生效，并按新定价重新计算全部历史成本。</p>' +
+    '<p class="hint">数据来源：自动扫描 <code>' + (scan ? scan.files + "</code> 个会话文件（" + scan.sessions + " 个会话）" : "</code>") +
+    "；「重新扫描」会丢弃缓存并重读全部会话记录。定价文档保存在 <code>$DSH_HOME/model-usage-pricing.json</code>。</p>";
+}
+
+function esc(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── events ──────────────────────────────────────────────────────────────────
+function bindTabEvents() {
+  if (state.tab !== "settings") return;
+  $("addRule").onclick = () => {
+    state.pricingRows.patterns.push("*");
+    state.pricingRows.prices.push({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    renderTab();
+  };
+  $("savePricing").onclick = async () => {
+    const rules = {};
+    const rowEls = document.querySelectorAll("#pricingRows .pricing-row");
+    rowEls.forEach((row) => {
+      const pattern = row.querySelector(".pattern").value.trim();
+      if (!pattern) return;
+      const rule = {};
+      row.querySelectorAll("input[data-field]").forEach((input) => {
+        rule[input.dataset.field] = Number(input.value) || 0;
+      });
+      rules[pattern] = rule;
+    });
+    if (Object.keys(rules).length === 0) { showError("至少需要一条定价规则"); return; }
+    try {
+      const resp = await fetch("/api/model-usage/pricing", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(rules),
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      await fetchUsage({ date: state.data.date });
+    } catch (error) {
+      showError("保存失败：" + error.message);
+    }
+  };
+  document.querySelectorAll("#pricingRows .del").forEach((button) => {
+    button.onclick = () => {
+      const i = Number(button.dataset.i);
+      state.pricingRows.patterns.splice(i, 1);
+      state.pricingRows.prices.splice(i, 1);
+      renderTab();
+    };
+  });
+}
+
+$("providers").addEventListener("click", (event) => {
+  const chip = event.target.closest("button");
+  if (!chip) return;
+  state.provider = chip.dataset.p ?? "";
+  render();
+});
+$("tabs").addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  state.tab = button.dataset.tab;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b === button));
+  renderTab();
+});
+
+$("dateInput").addEventListener("change", () => fetchUsage({ date: $("dateInput").value }));
+$("refresh").addEventListener("click", () => fetchUsage({ date: state.data?.date }));
+$("rescan").addEventListener("click", () => fetchUsage({ date: state.data?.date, rescan: true }));
+$("prevDay").addEventListener("click", () => shiftDay(-1));
+$("nextDay").addEventListener("click", () => shiftDay(1));
+
+function shiftDay(delta) {
+  const base = state.data?.date ?? $("dateInput").value;
+  if (!base) return;
+  const d = new Date(base + "T12:00:00");
+  d.setDate(d.getDate() + delta);
+  const p = (x) => String(x).padStart(2, "0");
+  fetchUsage({ date: d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) });
+}
+
+fetchUsage();
+</script>
+</body>
+</html>

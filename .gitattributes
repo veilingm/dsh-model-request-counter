@@ -1,0 +1,14 @@
+# Normalize all text files to LF in the repository and on checkout,
+# so git/tarball installs of the plugin behave identically everywhere.
+* text=auto eol=lf
+
+# Windows scripts must keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary artifacts
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zst binary
