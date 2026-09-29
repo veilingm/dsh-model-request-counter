@@ -601,7 +601,10 @@ window.__ModuleLoader__.load({
 				h("p", { key: "hint", className: "mrc-hint" },
 					"规则格式：provider/model 精确匹配、provider/* 供应商通配、* 兜底；价格为每百万 tokens 的美元数。保存后立即生效，并按新定价重新计算全部历史成本。"),
 				h("p", { key: "scan", className: "mrc-hint" },
-					"数据来源：自动扫描 " + data.scan.files + " 个会话文件（" + data.scan.sessions + " 个会话）；「重新扫描」会丢弃缓存并重读全部会话记录。定价文档保存在 $DSH_HOME/model-usage-pricing.json。"),
+					"数据来源：自动扫描 " + data.scan.files + " 个会话文件（" + data.scan.sessions + " 个会话"
+					+ ((data.scan.archived ?? 0) > 0 ? "，其中 " + data.scan.archived + " 个已归档——磁盘上已删除但统计保留" : "")
+					+ "）；「重新扫描」重读磁盘上的会话文件并保留归档，「清除归档」删除已归档会话的统计数据。"
+					+ "归档文档保存在 $DSH_HOME/model-usage-archive.json，定价文档保存在 $DSH_HOME/model-usage-pricing.json。"),
 			]);
 		}
 
@@ -766,6 +769,7 @@ window.__ModuleLoader__.load({
 				if (opts && opts.from) params.set("from", opts.from);
 				if (opts && opts.to) params.set("to", opts.to);
 				if (opts && opts.rescan) params.set("rescan", "1");
+				if (opts && opts.purgeArchive) params.set("purgeArchive", "1");
 				const qs = params.toString();
 				try {
 					const resp = await fetch("/api/model-usage" + (qs ? "?" + qs : ""));
@@ -786,6 +790,11 @@ window.__ModuleLoader__.load({
 			};
 			const refresh = () => load(currentQuery());
 			const rescan = () => load(Object.assign({ rescan: true }, currentQuery()));
+			const purgeArchive = () => {
+				const archived = (data && data.scan && data.scan.archived) || 0;
+				if (!window.confirm("确定清除已归档的统计数据？（磁盘上已删除的 " + archived + " 个会话）此操作不可恢复。")) return;
+				load(Object.assign({ purgeArchive: true }, currentQuery()));
+			};
 
 			const shiftDay = useCallback((delta) => {
 				if (!data || rangeMode) return;
@@ -937,6 +946,12 @@ window.__ModuleLoader__.load({
 				].concat(dateControls).concat([
 					h("button", { key: "refresh", className: "mrc-btn", onClick: refresh }, "刷新"),
 					h("button", { key: "rescan", className: "mrc-btn", onClick: rescan }, "重新扫描"),
+					h("button", {
+						key: "purge", className: "mrc-btn",
+						title: "删除已归档（磁盘上已删除会话）的统计数据，不可恢复",
+						disabled: !data || !data.scan || !data.scan.archived,
+						onClick: purgeArchive,
+					}, "清除归档"),
 					h("span", { key: "export", className: "mrc-export" }, [
 						h("button", { key: "csv", className: "mrc-btn", title: "导出请求日志为 CSV", onClick: () => exportData("log", "csv") }, "导出 CSV"),
 						h("button", { key: "json", className: "mrc-btn", title: "导出请求日志为 JSON", onClick: () => exportData("log", "json") }, "导出 JSON"),

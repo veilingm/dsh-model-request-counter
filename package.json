@@ -1,7 +1,7 @@
 {
   "name": "dsh-model-request-counter",
   "description": "Model usage dashboard for DeepSeek Harness: a Cordis client plugin adding the 使用统计 settings section (tokens, cost, latency, status per request), folded from stored session logs",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

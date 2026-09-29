@@ -43,7 +43,7 @@ dsh plugin --profile web add <解压路径>\dsh-model-request-counter
 
 说明：
 
-- **数据完全独立**：插件读取的是对方自己 `$DSH_HOME/sessions` 下的会话记录；定价规则也各自保存在对方的 `$DSH_HOME/model-usage-pricing.json`，互不影响。
+- **数据完全独立**：插件读取的是对方自己 `$DSH_HOME/sessions` 下的会话记录；定价规则和统计归档也各自保存在对方的 `$DSH_HOME`（`model-usage-pricing.json` / `model-usage-archive.json`），互不影响。
 - **升级**：用新版文件覆盖对方机器上的插件文件夹内容，重启 `dsh web` 即可（link 安装指向文件夹本身）。
 - **卸载**：`dsh plugin --profile web remove dsh-model-request-counter`。
 - 也可以走 **git 仓库**（`dsh plugin --profile web add <git-url>`，本插件无 prepare 构建脚本，无需额外配置）或发布到 npm 后按包名安装；本地文件夹 / tarball / git / registry 四种 pnpm 支持的形式都可以。
@@ -70,17 +70,19 @@ dsh plugin --profile web add <解压路径>\dsh-model-request-counter
 
 ## 数据来源与口径
 
-- **自动扫描**：直接读取 `$DSH_HOME/sessions/` 下全部会话记录（zstd JSONL，逐帧解码），覆盖所有历史会话；按文件 mtime 缓存，「重新扫描」丢弃缓存重读。
+- **自动扫描**：直接读取 `$DSH_HOME/sessions/` 下全部会话记录（zstd JSONL，逐帧解码），覆盖所有历史会话；按文件 mtime 缓存（跨重启持久化），「重新扫描」强制重读磁盘文件。
 - **一次请求 = 一条记录**：`assistant/message`（成功/中断/max-tokens）和 `assistant/attempt`（失败重试）各计一条。
 - **去重**：fork 出的子会话跳过继承自父会话的前缀，避免重复计数。
 - **成本**：默认只内置 DeepSeek 官方模型价格，其他第三方供应商需在设置页配置。
+- **归档保留**：会话文件从磁盘删除后，其统计数据自动归档保留（持久化在 `$DSH_HOME/model-usage-archive.json`）——删除会话不丢统计；会话文件版本轮换（如 `session.v1.jsonl` 取代 `session.jsonl`）不会误归档旧版本。工具栏「清除归档」按钮可彻底移除归档数据（不可恢复）；「重新扫描」只重读磁盘文件、不影响归档。
 
 ## HTTP 接口（宿主半体提供）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/usage` | 独立统计页面（HTML，不依赖设置面板的直达入口） |
-| GET | `/api/model-usage?date=YYYY-MM-DD&rescan=1` | 当日明细 + 全部日期汇总 |
+| GET | `/api/model-usage?date=YYYY-MM-DD&rescan=1` | 当日明细 + 全部日期汇总（`rescan=1` 强制重读磁盘） |
+| GET | `/api/model-usage?purgeArchive=1` | 清除已归档（磁盘上已删除会话）的统计数据 |
 | GET | `/api/model-usage?from=YYYY-MM-DD&to=YYYY-MM-DD` | 日期范围查询 + 按天聚合 |
 | GET | `/api/model-usage/summary?date=YYYY-MM-DD` | 当日按供应商汇总（悬浮入口数据源，缺省=今天） |
 | GET | `/api/model-usage/counts` | 实时活跃会话请求计数（来自投影 onChanged 推送） |
@@ -97,7 +99,7 @@ dsh plugin --profile web add <解压路径>\dsh-model-request-counter
 │   ├── index.js          # 宿主 apply(ctx)：投影注册 + onChanged 订阅 + webServer 路由
 │   ├── types/index.js    # modelRequestCounts 投影定义
 │   ├── types/client.js   # client 侧投影工具函数导出
-│   ├── usage-scan.js     # 会话日志磁盘扫描器（zstd 解码 + 事件折叠）
+│   ├── usage-scan.js     # 会话日志磁盘扫描器（zstd 解码 + 事件折叠 + 持久化归档）
 │   ├── pricing.js        # 定价规则（默认值 + 文件持久化 + 成本计算）
 │   ├── dashboard.html    # /usage 独立页面（加载 shared.js 共享格式化）
 │   └── static/
